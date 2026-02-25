@@ -3,6 +3,7 @@ package com.example.dbconfig.refresh;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -20,13 +21,31 @@ public class DbConfigJdbcRepository {
         return ts == null ? Instant.EPOCH : ts.toInstant();
     }
 
-    public Map<String, Object> loadAll() {
-        return jdbcTemplate.query("SELECT prop_key, prop_value FROM db_config_properties", rs -> {
+    public Map<String, Object> loadMergedForProfiles(List<String> profiles) {
+        Map<String, Object> merged = loadByProfile(null);
+        for (String profile : profiles) {
+            merged.putAll(loadByProfile(profile));
+        }
+        return merged;
+    }
+
+    private Map<String, Object> loadByProfile(String profile) {
+        if (profile == null) {
+            return jdbcTemplate.query("SELECT prop_key, prop_value FROM db_config_properties WHERE profile IS NULL", rs -> {
+                Map<String, Object> result = new LinkedHashMap<>();
+                while (rs.next()) {
+                    result.put(rs.getString("prop_key"), rs.getString("prop_value"));
+                }
+                return result;
+            });
+        }
+
+        return jdbcTemplate.query("SELECT prop_key, prop_value FROM db_config_properties WHERE profile = ?", rs -> {
             Map<String, Object> result = new LinkedHashMap<>();
             while (rs.next()) {
                 result.put(rs.getString("prop_key"), rs.getString("prop_value"));
             }
             return result;
-        });
+        }, profile);
     }
 }

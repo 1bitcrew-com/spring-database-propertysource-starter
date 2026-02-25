@@ -15,7 +15,7 @@ public class DbConfigRefreshProperties {
 
     private String propertySourceName = "dbConfig";
 
-    private int order = 0;
+    private final Precedence precedence = new Precedence();
 
     public boolean isEnabled() {
         return enabled;
@@ -49,11 +49,47 @@ public class DbConfigRefreshProperties {
         this.propertySourceName = propertySourceName;
     }
 
-    public int getOrder() {
-        return order;
+    public Precedence getPrecedence() {
+        return precedence;
     }
 
-    public void setOrder(int order) {
-        this.order = order;
+    public static class Precedence {
+
+        private Mode mode = Mode.FIRST;
+
+        private String relativeTo;
+
+        private boolean failIfRelativeMissing = false;
+
+        public Mode getMode() {
+            return mode;
+        }
+
+        public void setMode(Mode mode) {
+            this.mode = mode;
+        }
+
+        public String getRelativeTo() {
+            return relativeTo;
+        }
+
+        public void setRelativeTo(String relativeTo) {
+            this.relativeTo = relativeTo;
+        }
+
+        public boolean isFailIfRelativeMissing() {
+            return failIfRelativeMissing;
+        }
+
+        public void setFailIfRelativeMissing(boolean failIfRelativeMissing) {
+            this.failIfRelativeMissing = failIfRelativeMissing;
+        }
+    }
+
+    public enum Mode {
+        FIRST,
+        LAST,
+        BEFORE,
+        AFTER
     }
 }
