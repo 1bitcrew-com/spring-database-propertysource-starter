@@ -40,6 +40,7 @@ Konfiguracja pod prefixem `dbconfig.refresh.precedence`:
 
 - `dbconfig.refresh.poll-interval` – interwał pollingu.
 - `dbconfig.refresh.initial-delay` – opóźnienie startu schedulera.
+- `dbconfig.refresh.polling.enabled` – globalny przełącznik schedulera pollingu (default `true`).
 - Scheduler używa pojedynczego wątku `dbconfig-refresh-*` (daemon) i zatrzymuje się razem z kontekstem (`SmartLifecycle`).
 
 ### Debounce / throttle
@@ -124,5 +125,6 @@ Bezpieczeństwo:
 
 ## Limitations
 
-- polling (brak LISTEN/NOTIFY),
 - brak namespace/tenant/label.
+
+Obsługa LISTEN/NOTIFY dla Postgresa jest dostępna jako osobny moduł `db-config-refresh-postgres-notify-starter`.

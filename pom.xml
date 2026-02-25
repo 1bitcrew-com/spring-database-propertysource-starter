@@ -17,6 +17,7 @@
 
     <modules>
         <module>db-config-refresh-spring-cloud-starter</module>
+        <module>db-config-refresh-postgres-notify-starter</module>
         <module>db-config-refresh-spring-cloud-starter-testapp</module>
     </modules>
 
