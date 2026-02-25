@@ -27,16 +27,16 @@ public class DbConfigRefreshAutoConfiguration {
 
     @org.springframework.context.annotation.Bean
     @ConditionalOnMissingBean
-    DbConfigEnvironmentRegistrar dbConfigEnvironmentRegistrar() {
-        return new DbConfigEnvironmentRegistrar();
+    DbConfigPropertySourceInstaller dbConfigPropertySourceInstaller() {
+        return new DbConfigPropertySourceInstaller();
     }
 
     @org.springframework.context.annotation.Bean
     @ConditionalOnMissingBean
     DbConfigPropertySource dbConfigPropertySource(ConfigurableEnvironment environment,
-            DbConfigEnvironmentRegistrar registrar,
+            DbConfigPropertySourceInstaller installer,
             DbConfigRefreshProperties properties) {
-        return registrar.registerOrGet(environment, properties.getPropertySourceName(), properties.getOrder());
+        return installer.installOrGet(environment, properties.getPropertySourceName(), properties.getPrecedence());
     }
 
     @org.springframework.context.annotation.Bean
@@ -44,7 +44,8 @@ public class DbConfigRefreshAutoConfiguration {
     DbConfigRefreshScheduler dbConfigRefreshScheduler(DbConfigJdbcRepository repository,
             DbConfigPropertySource propertySource,
             ContextRefresher contextRefresher,
-            DbConfigRefreshProperties properties) {
-        return new DbConfigRefreshScheduler(repository, propertySource, contextRefresher, properties);
+            DbConfigRefreshProperties properties,
+            ConfigurableEnvironment environment) {
+        return new DbConfigRefreshScheduler(repository, propertySource, contextRefresher, properties, environment);
     }
 }

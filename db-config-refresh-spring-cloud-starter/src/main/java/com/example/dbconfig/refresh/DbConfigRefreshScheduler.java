@@ -2,6 +2,8 @@ package com.example.dbconfig.refresh;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -12,6 +14,7 @@ import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.context.refresh.ContextRefresher;
+import org.springframework.core.env.ConfigurableEnvironment;
 
 public class DbConfigRefreshScheduler {
 
@@ -21,6 +24,7 @@ public class DbConfigRefreshScheduler {
     private final DbConfigPropertySource propertySource;
     private final ContextRefresher contextRefresher;
     private final DbConfigRefreshProperties properties;
+    private final ConfigurableEnvironment environment;
 
     private final ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread thread = new Thread(r, "db-config-refresh-poller");
@@ -34,11 +38,13 @@ public class DbConfigRefreshScheduler {
     public DbConfigRefreshScheduler(DbConfigJdbcRepository repository,
             DbConfigPropertySource propertySource,
             ContextRefresher contextRefresher,
-            DbConfigRefreshProperties properties) {
+            DbConfigRefreshProperties properties,
+            ConfigurableEnvironment environment) {
         this.repository = repository;
         this.propertySource = propertySource;
         this.contextRefresher = contextRefresher;
         this.properties = properties;
+        this.environment = environment;
     }
 
     @PostConstruct
@@ -55,10 +61,11 @@ public class DbConfigRefreshScheduler {
 
     private void initialLoad() {
         try {
+            List<String> profiles = resolveProfiles();
             lastSeenUpdate = repository.getLastUpdated();
-            Map<String, Object> propertiesMap = repository.loadAll();
+            Map<String, Object> propertiesMap = repository.loadMergedForProfiles(profiles);
             propertySource.reload(propertiesMap);
-            log.info("Loaded DB config: keys={}, version={}", propertySource.size(), lastSeenUpdate);
+            log.info("Loaded DB config: keys={}, profiles={}, version={}", propertySource.size(), profiles, lastSeenUpdate);
         }
         catch (Exception ex) {
             handleError("Initial DB config load failed", ex);
@@ -75,16 +82,25 @@ public class DbConfigRefreshScheduler {
                 return;
             }
 
-            Map<String, Object> propertiesMap = repository.loadAll();
+            List<String> profiles = resolveProfiles();
+            Map<String, Object> propertiesMap = repository.loadMergedForProfiles(profiles);
             propertySource.reload(propertiesMap);
             lastSeenUpdate = currentVersion;
             lastRefreshAt = Instant.now();
             contextRefresher.refresh();
-            log.info("Refreshed DB config: keys={}, version={}", propertySource.size(), currentVersion);
+            log.info("Refreshed DB config: keys={}, profiles={}, version={}", propertySource.size(), profiles, currentVersion);
         }
         catch (Exception ex) {
             handleError("Polling DB config failed", ex);
         }
+    }
+
+    private List<String> resolveProfiles() {
+        String[] activeProfiles = environment.getActiveProfiles();
+        if (activeProfiles.length > 0) {
+            return Arrays.asList(activeProfiles);
+        }
+        return Arrays.asList(environment.getDefaultProfiles());
     }
 
     private boolean canRefreshNow() {

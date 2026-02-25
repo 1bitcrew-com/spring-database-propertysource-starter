@@ -19,6 +19,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @SpringBootTest(
         classes = TestApplication.class,
         properties = {
+                "spring.profiles.active=dev",
                 "dbconfig.refresh.poll-interval=1s",
                 "dbconfig.refresh.fail-soft=true",
                 "spring.sql.init.mode=always"
@@ -40,20 +41,47 @@ class DbConfigRefreshIntegrationTest {
     private DynamicValueBean dynamicValueBean;
 
     @Autowired
+    private DemoPropsHolder demoPropsHolder;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     @Test
-    void shouldRefreshRefreshScopeValueWhenDatabaseConfigChanges() {
-        assertThat(dynamicValueBean.getVal()).isEqualTo("one");
+    void shouldRefreshRefreshScopeValueUsingActiveProfileOverride() {
+        assertThat(dynamicValueBean.getVal()).isEqualTo("dev-one");
 
         jdbcTemplate.update(
-                "UPDATE db_config_properties SET prop_value = ?, updated_at = now() WHERE prop_key = ?",
-                "two",
-                "my.dynamic.value");
+                "UPDATE db_config_properties SET prop_value = ?, updated_at = now() WHERE prop_key = ? AND profile = ?",
+                "dev-two",
+                "my.dynamic.value",
+                "dev");
 
         Awaitility.await()
                 .atMost(Duration.ofSeconds(10))
                 .pollInterval(Duration.ofMillis(200))
-                .untilAsserted(() -> assertThat(dynamicValueBean.getVal()).isEqualTo("two"));
+                .untilAsserted(() -> assertThat(dynamicValueBean.getVal()).isEqualTo("dev-two"));
+    }
+
+    @Test
+    void shouldRebindConfigurationPropertiesAfterRefresh() {
+        assertThat(demoPropsHolder.getThreshold()).isEqualTo(5);
+        assertThat(demoPropsHolder.getMode()).isEqualTo("alpha");
+
+        jdbcTemplate.update(
+                "UPDATE db_config_properties SET prop_value = ?, updated_at = now() WHERE prop_key = ? AND profile IS NULL",
+                "7",
+                "demo.threshold");
+        jdbcTemplate.update(
+                "UPDATE db_config_properties SET prop_value = ?, updated_at = now() WHERE prop_key = ? AND profile IS NULL",
+                "beta",
+                "demo.mode");
+
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(10))
+                .pollInterval(Duration.ofMillis(200))
+                .untilAsserted(() -> {
+                    assertThat(demoPropsHolder.getThreshold()).isEqualTo(7);
+                    assertThat(demoPropsHolder.getMode()).isEqualTo("beta");
+                });
     }
 }
