@@ -1,56 +1,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-
-    <parent>
-        <groupId>com.example</groupId>
-        <artifactId>db-config-refresh-parent</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
-    </parent>
-
+    <parent><groupId>com.example</groupId><artifactId>db-config-refresh-parent</artifactId><version>0.0.1-SNAPSHOT</version></parent>
     <artifactId>db-config-refresh-postgres-notify-starter</artifactId>
-    <name>db-config-refresh-postgres-notify-starter</name>
-
+    <name>db-config-refresh-postgres-notify-starter (compat)</name>
     <dependencies>
-        <dependency>
-            <groupId>com.example</groupId>
-            <artifactId>db-config-refresh-spring-cloud-starter</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-configuration-processor</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>io.micrometer</groupId>
-            <artifactId>micrometer-core</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>test</scope>
-        </dependency>
+        <dependency><groupId>com.example</groupId><artifactId>db-config-refresh-spring-cloud-starter</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>com.example</groupId><artifactId>config-db-postgres-notify-trigger-starter</artifactId><version>${project.version}</version></dependency>
     </dependencies>
 </project>
