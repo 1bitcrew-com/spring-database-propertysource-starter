@@ -78,6 +78,8 @@ public class DbConfigRefreshAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "dbconfig.refresh.polling", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = "dbconfig.refresh.postgres-notify", name = "fallback-polling-enabled", havingValue = "true", matchIfMissing = true)
     DbConfigRefreshScheduler dbConfigRefreshScheduler(DbConfigRefreshService refreshService,
             DbConfigRefreshProperties properties,
             DbConfigRefreshState state,

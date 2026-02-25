@@ -18,6 +18,10 @@ public class DbConfigRefreshState {
     private final AtomicInteger lastSnapshotSize = new AtomicInteger();
     private final AtomicReference<List<String>> lastActiveProfiles = new AtomicReference<>(List.of());
     private final AtomicInteger initialLoadFailed = new AtomicInteger();
+    private final AtomicInteger listenConnected = new AtomicInteger();
+    private final AtomicReference<Instant> lastNotifyAt = new AtomicReference<>(Instant.EPOCH);
+    private final AtomicInteger notifyEnabled = new AtomicInteger();
+    private final AtomicReference<String> notifyChannel = new AtomicReference<>();
 
     public void onRefreshTriggered() {
         refreshTriggeredCount.incrementAndGet();
@@ -97,4 +101,39 @@ public class DbConfigRefreshState {
     public void setInitialLoadFailed(boolean failed) {
         initialLoadFailed.set(failed ? 1 : 0);
     }
+
+    public void setListenConnected(boolean connected) {
+        listenConnected.set(connected ? 1 : 0);
+    }
+
+    public boolean isListenConnected() {
+        return listenConnected.get() == 1;
+    }
+
+    public Instant getLastNotifyAt() {
+        return lastNotifyAt.get();
+    }
+
+    public void setLastNotifyAt(Instant notifyAt) {
+        if (notifyAt != null) {
+            lastNotifyAt.set(notifyAt);
+        }
+    }
+
+    public boolean isNotifyEnabled() {
+        return notifyEnabled.get() == 1;
+    }
+
+    public void setNotifyEnabled(boolean enabled) {
+        notifyEnabled.set(enabled ? 1 : 0);
+    }
+
+    public String getNotifyChannel() {
+        return notifyChannel.get();
+    }
+
+    public void setNotifyChannel(String channel) {
+        notifyChannel.set(channel);
+    }
 }
+

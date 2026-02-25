@@ -13,6 +13,8 @@ public class DbConfigRefreshProperties {
 
     private Duration initialDelay = Duration.ZERO;
 
+    private boolean pollingEnabled = true;
+
     private boolean failSoft = true;
 
     private String propertySourceName = "dbConfig";
@@ -53,6 +55,14 @@ public class DbConfigRefreshProperties {
 
     public void setInitialDelay(Duration initialDelay) {
         this.initialDelay = initialDelay;
+    }
+
+    public boolean isPollingEnabled() {
+        return pollingEnabled;
+    }
+
+    public void setPollingEnabled(boolean pollingEnabled) {
+        this.pollingEnabled = pollingEnabled;
     }
 
     public boolean isFailSoft() {

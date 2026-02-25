@@ -51,10 +51,18 @@ public class DbConfigRefreshEndpoint {
         body.put("lastError", state.getLastErrorSummary());
         body.put("snapshotKeys", state.getLastSnapshotSize());
         body.put("degraded", state.isDegraded() == 1);
+        body.put("notifyEnabled", state.isNotifyEnabled());
+        body.put("notifyChannel", state.getNotifyChannel());
+        body.put("notifyListenerConnected", state.isListenConnected());
+        body.put("lastNotifyAt", toNullableInstant(state.getLastNotifyAt()));
         if (properties.getActuator().isExposeDetails()) {
             body.put("activeProfiles", state.getLastActiveProfiles());
             body.put("initialLoadFailed", state.isInitialLoadFailed());
         }
         return body;
     }
+    private Instant toNullableInstant(Instant value) {
+        return (value == null || Instant.EPOCH.equals(value)) ? null : value;
+    }
+
 }
