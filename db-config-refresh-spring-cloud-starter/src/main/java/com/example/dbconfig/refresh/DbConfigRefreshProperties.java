@@ -29,6 +29,8 @@ public class DbConfigRefreshProperties {
 
     private final Metrics metrics = new Metrics();
 
+    private final Actuator actuator = new Actuator();
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -91,6 +93,10 @@ public class DbConfigRefreshProperties {
 
     public Metrics getMetrics() {
         return metrics;
+    }
+
+    public Actuator getActuator() {
+        return actuator;
     }
 
     public static class Precedence {
@@ -272,6 +278,97 @@ public class DbConfigRefreshProperties {
 
             public void setProfile(boolean profile) {
                 this.profile = profile;
+            }
+        }
+    }
+
+    public static class Actuator {
+
+        private boolean enabled = true;
+
+        private final Endpoint endpoint = new Endpoint();
+
+        private boolean healthEnabled = true;
+
+        private boolean infoEnabled = true;
+
+        private boolean exposeDetails = false;
+
+        private final Health health = new Health();
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public Endpoint getEndpoint() {
+            return endpoint;
+        }
+
+        public boolean isHealthEnabled() {
+            return healthEnabled;
+        }
+
+        public void setHealthEnabled(boolean healthEnabled) {
+            this.healthEnabled = healthEnabled;
+        }
+
+        public boolean isInfoEnabled() {
+            return infoEnabled;
+        }
+
+        public void setInfoEnabled(boolean infoEnabled) {
+            this.infoEnabled = infoEnabled;
+        }
+
+        public boolean isExposeDetails() {
+            return exposeDetails;
+        }
+
+        public void setExposeDetails(boolean exposeDetails) {
+            this.exposeDetails = exposeDetails;
+        }
+
+        public Health getHealth() {
+            return health;
+        }
+
+        public static class Endpoint {
+
+            private boolean enabled = true;
+
+            private String id = "dbconfigrefresh";
+
+            public boolean isEnabled() {
+                return enabled;
+            }
+
+            public void setEnabled(boolean enabled) {
+                this.enabled = enabled;
+            }
+
+            public String getId() {
+                return id;
+            }
+
+            public void setId(String id) {
+                this.id = id;
+            }
+        }
+
+        public static class Health {
+
+            private Duration staleAfter;
+
+            public Duration getStaleAfter() {
+                return staleAfter;
+            }
+
+            public void setStaleAfter(Duration staleAfter) {
+                this.staleAfter = staleAfter;
             }
         }
     }

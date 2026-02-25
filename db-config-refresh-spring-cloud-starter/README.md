@@ -94,8 +94,35 @@ Rejestrowane metryki:
 - `retry.initial-backoff`: `100ms-500ms`
 - `retry.max-backoff`: `2s-10s`
 
+
+## Actuator integration (Iteration 4)
+
+Wsparcie jest warunkowe (`@ConditionalOnClass`) i aktywuje się tylko gdy Actuator jest na classpath.
+
+Nowe właściwości (`dbconfig.refresh.actuator.*`):
+
+- `enabled` (default `true`)
+- `endpoint.enabled` (default `true`)
+- `endpoint.id` (default `dbconfigrefresh`) – **TODO**: w tej iteracji endpoint ma stałe id `dbconfigrefresh`.
+- `health-enabled` (default `true`)
+- `info-enabled` (default `true`)
+- `expose-details` (default `false`)
+- `health.stale-after` (optional) – po przekroczeniu czasu od ostatniego sukcesu status `UNKNOWN`.
+
+Dostarczane elementy:
+
+- `/actuator/dbconfigrefresh`:
+  - `GET` (`@ReadOperation`) status/metadane refresh,
+  - `POST` (`@WriteOperation`) manualny refresh z tą samą logiką co scheduler.
+- `InfoContributor` (`/actuator/info`, sekcja `dbconfig`) – wersja, ostatnie czasy, liczba kluczy, status degraded.
+- `HealthIndicator` (`dbConfigRefresh`) – status `UP` / `OUT_OF_SERVICE` / `DEGRADED` / `DOWN`.
+
+Bezpieczeństwo:
+
+- endpointy korzystają ze standardowych mechanizmów security Actuator,
+- brak ekspozycji wartości konfiguracji (tylko metadane).
+
 ## Limitations
 
 - polling (brak LISTEN/NOTIFY),
-- brak namespace/tenant/label,
-- brak actuator endpointów.
+- brak namespace/tenant/label.
