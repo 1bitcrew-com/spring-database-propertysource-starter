@@ -19,7 +19,7 @@ public class MicrometerDbConfigRefreshMetrics implements DbConfigRefreshMetrics 
     private final Timer contextRefreshTimer;
 
     public MicrometerDbConfigRefreshMetrics(MeterRegistry meterRegistry,
-            DbConfigRefreshRuntimeState runtimeState,
+            DbConfigRefreshState runtimeState,
             String propertySourceName,
             String activeProfilesTag,
             String failMode,
@@ -41,10 +41,10 @@ public class MicrometerDbConfigRefreshMetrics implements DbConfigRefreshMetrics 
         Gauge.builder("dbconfig.refresh.last.success.epoch", runtimeState, s -> s.getLastSuccessEpochMillis() / 1000.0d)
                 .tags(tags)
                 .register(meterRegistry);
-        Gauge.builder("dbconfig.refresh.consecutive.failures", runtimeState, DbConfigRefreshRuntimeState::getConsecutiveFailures)
+        Gauge.builder("dbconfig.refresh.consecutive.failures", runtimeState, DbConfigRefreshState::getConsecutiveFailures)
                 .tags(tags)
                 .register(meterRegistry);
-        Gauge.builder("dbconfig.refresh.degraded", runtimeState, DbConfigRefreshRuntimeState::isDegraded)
+        Gauge.builder("dbconfig.refresh.degraded", runtimeState, DbConfigRefreshState::isDegraded)
                 .tags(tags)
                 .register(meterRegistry);
     }

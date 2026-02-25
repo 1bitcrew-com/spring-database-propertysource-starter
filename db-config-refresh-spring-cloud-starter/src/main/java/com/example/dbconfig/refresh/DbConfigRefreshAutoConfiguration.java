@@ -3,12 +3,16 @@ package com.example.dbconfig.refresh;
 import javax.sql.DataSource;
 
 import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.boot.actuate.autoconfigure.health.ConditionalOnEnabledHealthIndicator;
+import org.springframework.boot.actuate.info.InfoContributor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
+import org.springframework.boot.actuate.health.HealthIndicator;
 import org.springframework.cloud.context.refresh.ContextRefresher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -44,7 +48,7 @@ public class DbConfigRefreshAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    DbConfigRefreshRuntimeState dbConfigRefreshRuntimeState() {
+    DbConfigRefreshState dbConfigRefreshState() {
         return new DbConfigRefreshRuntimeState();
     }
 
@@ -56,20 +60,29 @@ public class DbConfigRefreshAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    DbConfigRefreshScheduler dbConfigRefreshScheduler(DbConfigJdbcRepository repository,
+    DbConfigRefreshService dbConfigRefreshService(DbConfigJdbcRepository repository,
             DbConfigPropertySource propertySource,
             ContextRefresher contextRefresher,
             DbConfigRefreshProperties properties,
             ConfigurableEnvironment environment,
-            DbConfigRefreshRuntimeState runtimeState,
+            DbConfigRefreshState state,
             DbConfigRefreshMetrics metrics) {
-        return new DbConfigRefreshScheduler(repository,
+        return new DbConfigRefreshService(repository,
                 propertySource,
                 contextRefresher,
                 properties,
                 environment,
-                runtimeState,
+                state,
                 metrics);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    DbConfigRefreshScheduler dbConfigRefreshScheduler(DbConfigRefreshService refreshService,
+            DbConfigRefreshProperties properties,
+            DbConfigRefreshState state,
+            DbConfigRefreshMetrics metrics) {
+        return new DbConfigRefreshScheduler(refreshService, properties, state, metrics);
     }
 
     @Configuration(proxyBeanMethods = false)
@@ -80,7 +93,7 @@ public class DbConfigRefreshAutoConfiguration {
         @Bean
         @ConditionalOnMissingBean(DbConfigRefreshMetrics.class)
         DbConfigRefreshMetrics micrometerDbConfigRefreshMetrics(MeterRegistry meterRegistry,
-                DbConfigRefreshRuntimeState runtimeState,
+                DbConfigRefreshState state,
                 DbConfigRefreshProperties properties,
                 ConfigurableEnvironment environment) {
             String[] activeProfiles = environment.getActiveProfiles();
@@ -90,11 +103,44 @@ public class DbConfigRefreshAutoConfiguration {
                     : "FAST";
             return new MicrometerDbConfigRefreshMetrics(
                     meterRegistry,
-                    runtimeState,
+                    state,
                     properties.getPropertySourceName(),
                     profileTagValue,
                     failMode,
                     properties.getMetrics().getTags().isProfile());
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(Endpoint.class)
+    @ConditionalOnProperty(prefix = "dbconfig.refresh.actuator", name = "enabled", havingValue = "true", matchIfMissing = true)
+    static class ActuatorConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        @ConditionalOnProperty(prefix = "dbconfig.refresh.actuator.endpoint", name = "enabled", havingValue = "true", matchIfMissing = true)
+        DbConfigRefreshEndpoint dbConfigRefreshEndpoint(DbConfigRefreshService refreshService,
+                DbConfigRefreshState state,
+                DbConfigRefreshProperties properties) {
+            return new DbConfigRefreshEndpoint(refreshService, state, properties);
+        }
+
+        @Bean
+        @ConditionalOnClass(InfoContributor.class)
+        @ConditionalOnMissingBean
+        @ConditionalOnProperty(prefix = "dbconfig.refresh.actuator", name = "info-enabled", havingValue = "true", matchIfMissing = true)
+        DbConfigRefreshInfoContributor dbConfigRefreshInfoContributor(DbConfigRefreshState state,
+                DbConfigRefreshProperties properties) {
+            return new DbConfigRefreshInfoContributor(state, properties);
+        }
+
+        @Bean("dbConfigRefreshHealthIndicator")
+        @ConditionalOnClass(HealthIndicator.class)
+        @ConditionalOnEnabledHealthIndicator("dbConfigRefresh")
+        @ConditionalOnProperty(prefix = "dbconfig.refresh.actuator", name = "health-enabled", havingValue = "true", matchIfMissing = true)
+        DbConfigRefreshHealthIndicator dbConfigRefreshHealthIndicator(DbConfigRefreshState state,
+                DbConfigRefreshProperties properties) {
+            return new DbConfigRefreshHealthIndicator(state, properties);
         }
     }
 }

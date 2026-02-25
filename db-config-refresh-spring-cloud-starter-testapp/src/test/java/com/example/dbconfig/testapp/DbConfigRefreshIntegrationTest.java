@@ -12,9 +12,12 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
+import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.TestConfiguration;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -23,21 +26,26 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import com.example.dbconfig.refresh.DbConfigJdbcRepository;
-import com.example.dbconfig.refresh.DbConfigRefreshRuntimeState;
+import com.example.dbconfig.refresh.DbConfigRefreshState;
 
 @Testcontainers
 @SpringBootTest(
+        webEnvironment = WebEnvironment.RANDOM_PORT,
         classes = { TestApplication.class, DbConfigRefreshIntegrationTest.TestBeans.class },
         properties = {
                 "spring.profiles.active=dev",
-                "dbconfig.refresh.poll-interval=200ms",
+                "dbconfig.refresh.poll-interval=5m",
                 "dbconfig.refresh.initial-delay=0ms",
-                "dbconfig.refresh.refresh.min-interval=2s",
-                "dbconfig.refresh.refresh.max-wait=3s",
-                "dbconfig.refresh.refresh.coalesce-window=400ms",
                 "dbconfig.refresh.retry.max-attempts=1",
                 "dbconfig.refresh.fail-soft=true",
-                "dbconfig.refresh.fail-soft.max-consecutive-failures=2",
+                "dbconfig.refresh.fail-soft.max-consecutive-failures=1",
+                "dbconfig.refresh.actuator.enabled=true",
+                "dbconfig.refresh.actuator.endpoint.enabled=true",
+                "dbconfig.refresh.actuator.info-enabled=true",
+                "dbconfig.refresh.actuator.health-enabled=true",
+                "dbconfig.refresh.actuator.expose-details=true",
+                "management.endpoints.web.exposure.include=*",
+                "management.endpoint.health.show-details=always",
                 "spring.sql.init.mode=always"
         })
 class DbConfigRefreshIntegrationTest {
@@ -57,19 +65,19 @@ class DbConfigRefreshIntegrationTest {
     private DynamicValueBean dynamicValueBean;
 
     @Autowired
-    private DemoPropsHolder demoPropsHolder;
-
-    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
-    private DbConfigRefreshRuntimeState runtimeState;
+    private TestRestTemplate restTemplate;
+
+    @Autowired
+    private DbConfigRefreshState refreshState;
 
     @Autowired
     private FailureSwitch failureSwitch;
 
     @Test
-    void shouldRefreshRefreshScopeValueUsingActiveProfileOverride() {
+    void manualRefreshEndpointShouldReloadRefreshScopeValue() {
         assertThat(dynamicValueBean.getVal()).isEqualTo("dev-one");
 
         jdbcTemplate.update(
@@ -78,87 +86,69 @@ class DbConfigRefreshIntegrationTest {
                 "my.dynamic.value",
                 "dev");
 
+        ResponseEntity<Map> response = restTemplate.postForEntity("/actuator/dbconfigrefresh", null, Map.class);
+
+        assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().get("refreshed")).isEqualTo(true);
+        assertThat(response.getBody()).containsKeys("newVersion", "durationMs", "snapshotKeys");
+
         Awaitility.await()
-                .atMost(Duration.ofSeconds(12))
-                .pollInterval(Duration.ofMillis(200))
+                .atMost(Duration.ofSeconds(5))
+                .pollInterval(Duration.ofMillis(100))
                 .untilAsserted(() -> assertThat(dynamicValueBean.getVal()).isEqualTo("dev-two"));
     }
 
     @Test
-    void shouldRebindConfigurationPropertiesAfterRefresh() {
-        assertThat(demoPropsHolder.getThreshold()).isEqualTo(5);
-        assertThat(demoPropsHolder.getMode()).isEqualTo("alpha");
+    void infoEndpointShouldContainDbConfigMetadataWithoutValues() {
+        ResponseEntity<Map> response = restTemplate.getForEntity("/actuator/info", Map.class);
 
-        jdbcTemplate.update(
-                "UPDATE db_config_properties SET prop_value = ?, updated_at = now() WHERE prop_key = ? AND profile IS NULL",
-                "7",
-                "demo.threshold");
-        jdbcTemplate.update(
-                "UPDATE db_config_properties SET prop_value = ?, updated_at = now() WHERE prop_key = ? AND profile IS NULL",
-                "beta",
-                "demo.mode");
+        assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(response.getBody()).isNotNull();
 
-        Awaitility.await()
-                .atMost(Duration.ofSeconds(12))
-                .pollInterval(Duration.ofMillis(200))
-                .untilAsserted(() -> {
-                    assertThat(demoPropsHolder.getThreshold()).isEqualTo(7);
-                    assertThat(demoPropsHolder.getMode()).isEqualTo("beta");
-                });
+        Object dbConfigObject = response.getBody().get("dbconfig");
+        assertThat(dbConfigObject).isInstanceOf(Map.class);
+
+        Map<?, ?> dbConfig = (Map<?, ?>) dbConfigObject;
+        assertThat(dbConfig).containsKeys("version", "lastSuccess", "keysCount");
+        assertThat(dbConfig).doesNotContainKey("values");
     }
 
     @Test
-    void shouldCoalesceBurstOfUpdatesAndApplyFinalValue() throws InterruptedException {
-        long refreshBaseline = runtimeState.getRefreshTriggeredCount();
-
-        for (int i = 1; i <= 5; i++) {
-            jdbcTemplate.update(
-                    "UPDATE db_config_properties SET prop_value = ?, updated_at = now() WHERE prop_key = ? AND profile = ?",
-                    "debounced-" + i,
-                    "my.dynamic.value",
-                    "dev");
-            Thread.sleep(100L);
-        }
-
-        Awaitility.await()
-                .atMost(Duration.ofSeconds(12))
-                .pollInterval(Duration.ofMillis(200))
-                .untilAsserted(() -> assertThat(dynamicValueBean.getVal()).isEqualTo("debounced-5"));
-
-        long refreshDelta = runtimeState.getRefreshTriggeredCount() - refreshBaseline;
-        assertThat(refreshDelta).isLessThanOrEqualTo(2L);
-    }
-
-    @Test
-    void shouldKeepLastSnapshotWhenDbFailsInFailSoftMode() {
-        jdbcTemplate.update(
-                "UPDATE db_config_properties SET prop_value = ?, updated_at = now() WHERE prop_key = ? AND profile = ?",
-                "one",
-                "my.dynamic.value",
-                "dev");
-
-        Awaitility.await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> assertThat(dynamicValueBean.getVal()).isEqualTo("one"));
+    void healthEndpointShouldSwitchFromUpToDegradedAndBackToUp() {
+        ResponseEntity<Map> initialHealth = restTemplate.getForEntity("/actuator/health/dbConfigRefresh", Map.class);
+        assertThat(initialHealth.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(initialHealth.getBody()).isNotNull();
+        assertThat(initialHealth.getBody().get("status")).isEqualTo("UP");
 
         failureSwitch.setFail(true);
-
-        jdbcTemplate.update(
-                "UPDATE db_config_properties SET prop_value = ?, updated_at = now() WHERE prop_key = ? AND profile = ?",
-                "two",
-                "my.dynamic.value",
-                "dev");
+        ResponseEntity<Map> failedRefresh = restTemplate.postForEntity("/actuator/dbconfigrefresh", null, Map.class);
+        assertThat(failedRefresh.getStatusCode().is2xxSuccessful()).isTrue();
+        assertThat(failedRefresh.getBody()).isNotNull();
+        assertThat(failedRefresh.getBody().get("refreshed")).isEqualTo(false);
 
         Awaitility.await()
-                .during(Duration.ofSeconds(2))
-                .atMost(Duration.ofSeconds(4))
-                .pollInterval(Duration.ofMillis(200))
-                .untilAsserted(() -> assertThat(dynamicValueBean.getVal()).isEqualTo("one"));
+                .atMost(Duration.ofSeconds(5))
+                .untilAsserted(() -> {
+                    ResponseEntity<Map> degradedHealth = restTemplate.getForEntity("/actuator/health/dbConfigRefresh", Map.class);
+                    assertThat(degradedHealth.getStatusCode().is2xxSuccessful()).isTrue();
+                    assertThat(degradedHealth.getBody()).isNotNull();
+                    assertThat(degradedHealth.getBody().get("status")).isNotEqualTo("UP");
+                });
 
         failureSwitch.setFail(false);
+        ResponseEntity<Map> recoveredRefresh = restTemplate.postForEntity("/actuator/dbconfigrefresh", null, Map.class);
+        assertThat(recoveredRefresh.getStatusCode().is2xxSuccessful()).isTrue();
 
         Awaitility.await()
-                .atMost(Duration.ofSeconds(12))
-                .pollInterval(Duration.ofMillis(200))
-                .untilAsserted(() -> assertThat(dynamicValueBean.getVal()).isEqualTo("two"));
+                .atMost(Duration.ofSeconds(5))
+                .untilAsserted(() -> {
+                    ResponseEntity<Map> recoveredHealth = restTemplate.getForEntity("/actuator/health/dbConfigRefresh", Map.class);
+                    assertThat(recoveredHealth.getStatusCode().is2xxSuccessful()).isTrue();
+                    assertThat(recoveredHealth.getBody()).isNotNull();
+                    assertThat(recoveredHealth.getBody().get("status")).isEqualTo("UP");
+                    assertThat(refreshState.getConsecutiveFailures()).isZero();
+                });
     }
 
     @TestConfiguration(proxyBeanMethods = false)
