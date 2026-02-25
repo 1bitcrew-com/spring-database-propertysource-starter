@@ -13,11 +13,16 @@
     <artifactId>db-config-refresh-parent</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <name>db-config-refresh-parent</name>
 
     <modules>
+        <module>config-db-core</module>
+        <module>config-db-core-spring-boot-starter</module>
+        <module>config-db-jdbc-source-spring-boot-starter</module>
+        <module>config-db-spring-cloud-refresh-starter</module>
+        <module>config-db-postgres-notify-trigger-starter</module>
         <module>db-config-refresh-spring-cloud-starter</module>
         <module>db-config-refresh-postgres-notify-starter</module>
+        <module>config-db-testapp</module>
         <module>db-config-refresh-spring-cloud-starter-testapp</module>
     </modules>
 
